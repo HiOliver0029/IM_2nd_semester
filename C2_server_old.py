@@ -120,9 +120,9 @@ def send_pending_command():
 
 # 模擬 100 個命令參數
 COMMAND_POOL = [
-    "whoami", "ipconfig", "ping www.google.com",  
-    "Get-ComputerInfo", "nslookup", "ls"
-    # Add more commands as needed
+    "cmd_1", "cmd_2", "cmd_3",  # Add more commands as needed
+    #...
+    "cmd_100"
 ]
 
 # IV_LENGTH = 16
@@ -171,7 +171,7 @@ def get_command():
         encrypted_command = encrypt_data(selected_command_as_bytes)
         print(f"Encrypted Command: {encrypted_command}")
 
-        return jsonify({"status": "success", "command": selected_command_as_bytes, "type": "powershell"}), 200
+        return jsonify({"status": "success", "command": encrypted_command}), 200
 
     except Exception as e:
         print(f"Error: {str(e)}")
