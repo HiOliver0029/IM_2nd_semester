@@ -10,6 +10,7 @@ Unveiling Lazarus new campaign，是北韓駭客組織 Lazarus 透過一個合�
 
 #### signBT
 `signBT.py` 檔案是會被置於 victim 端的惡意 payload，部署後可透過 `python signBT.py` 執行，就會跟 C2 server 進行傳訊，另外為了不在 victim 端留下足跡，亦可透過 `signBT.cpp` 去讀取 `signBT.py` 檔案的方式執行 signBT，需要先 `sudo apt-get install python3-dev`，接著編譯檔案 `g++ -o signBT signBT.cpp -lssl -lcrypto` 然後執行 `.\signBT.exe`。  
+`ualapi.dll` 是從 `dllmain.cpp` 原始碼經由 visual studio 轉換成 dll 後的檔案，需先放置到 system32 資料夾下，當電腦啟動並開啟 `spoolsv.exe` 時就會去讀取惡意的 DLL 完成 DLL hijacking。DLL 會去先檢查 machineGuid 並讀取指定路徑 (C:\Windows\system32\config\systemprofile\appdata\Local\tw-100a-a00-e14d9.tmp) 下的 tmp 檔 (100a, 100b) 並執行。  
 
 #### AESdecrypt,encrypt,100a,100b 
 需先安裝 openssl 與 cyptography 套件，指令為 `sudo apt-get install openssl` 和 `pip install cryptography`，windows 版本 openssl 請[點此安裝](https://slproweb.com/products/Win32OpenSSL.html)。  
